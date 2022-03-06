@@ -1,11 +1,9 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "NPCAIController.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "EngineUtils.h"
 
 static bool GPrintDistanceToPlayerOnScreen = false;
 FAutoConsoleVariableRef CVar_PrintDistanceToPlayerOnScreen(
@@ -15,11 +13,29 @@ FAutoConsoleVariableRef CVar_PrintDistanceToPlayerOnScreen(
 	ECVF_Default
 );
 
+static bool GSphereTracingDebugDraw = false;
+FAutoConsoleVariableRef CVar_SphereTracingDebugDraw(
+	TEXT("Game.SphereTracingDebugDraw"),
+	GSphereTracingDebugDraw,
+	TEXT("."),
+	ECVF_Default
+);
+
 static constexpr float AcceptanceRadius = 25.0f;
 
 void ANPCAIController::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// ALL AIs
+	GetAllActorsOfType<ANPCAIController>(GetWorld(), AvailableAIActorsToConnect);
+	for (auto AIC : AvailableAIActorsToConnect)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 60.0f, FColor::Orange, FString::Printf(TEXT("AI NPC: %s"), *AIC->GetName()));
+		}
+	}
 
 	if (this->AIBehavior != nullptr)
 	{
@@ -31,7 +47,7 @@ void ANPCAIController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// MoveAwayFromPawn(GetPlayerPawn());
+	CheckForNPCToDisconnect();
 }
 
 APawn* ANPCAIController::GetPlayerPawn()
@@ -82,17 +98,220 @@ void ANPCAIController::MoveAwayFromPawn(APawn* ThePawn)
 
 			EPathFollowingRequestResult::Type Result = {};
 			Result = MoveToLocation(TheDestination, AcceptanceRadius);
-
-			if (Result == EPathFollowingRequestResult::RequestSuccessful)
-			{
-				// TODO: Take Damage
-				// This->Destroy();
-			}
 		}
 		else
 		{
 			ClearFocus(EAIFocusPriority::Gameplay);
 			StopMovement();
 		}
+	}
+}
+
+bool ANPCAIController::DamagePawn(APawn* ThePawn, float Damage)
+{
+	if (IsValid(ThePawn))
+	{
+		if (GEngine)
+		{
+			// GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Damage Pawn: %s"), *ThePawn->GetName()));
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+bool ANPCAIController::CanPawnTakeDamage(APawn* ThePawn)
+{
+	if (IsValid(ThePawn))
+	{
+
+		FVector Start = ThePawn->GetActorLocation();
+		FVector End = ThePawn->GetActorLocation();
+
+		TArray<AActor*> ActorsToIgnore =
+		{
+			ThePawn,
+		};
+
+		float TraceRadius = 300.0f;
+
+		bool bTraceComplex = false;
+
+		TArray<FHitResult> HitArray = {};
+		TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes =
+		{
+			UEngineTypes::ConvertToObjectType(ECC_Pawn)
+		};
+
+		EDrawDebugTrace::Type DebugDraw = GSphereTracingDebugDraw ? EDrawDebugTrace::ForDuration : EDrawDebugTrace::None;
+		bool bHit = UKismetSystemLibrary::SphereTraceMultiForObjects(GetWorld(), Start, End, TraceRadius, ObjectTypes,
+			bTraceComplex, ActorsToIgnore, DebugDraw, HitArray, true, FLinearColor::Blue, FLinearColor::Gray, 60.0f);
+
+		if (bHit)
+		{
+			ConnectNPCs(HitArray);
+		}
+
+		return bHit;
+	}
+
+	return false;
+}
+
+bool ANPCAIController::CanPawnExplode(APawn* ThePawn)
+{
+	if (IsValid(ThePawn))
+	{
+
+		FVector Start = ThePawn->GetActorLocation();
+		FVector End = ThePawn->GetActorLocation();
+
+		TArray<AActor*> ActorsToIgnore =
+		{
+			ThePawn,
+			GetPlayerPawn()
+		};
+
+		float TraceRadius = 300.0f;
+
+		bool bTraceComplex = false;
+
+		TArray<FHitResult> HitArray = {};
+		TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes =
+		{
+			UEngineTypes::ConvertToObjectType(ECC_Pawn)
+		};
+
+		EDrawDebugTrace::Type DebugDraw = GSphereTracingDebugDraw ? EDrawDebugTrace::ForDuration : EDrawDebugTrace::None;
+		bool bHit = UKismetSystemLibrary::SphereTraceMultiForObjects(GetWorld(), Start, End, TraceRadius, ObjectTypes,
+			bTraceComplex, ActorsToIgnore, DebugDraw, HitArray, true, FLinearColor::Blue, FLinearColor::Gray, 60.0f);
+
+		if (bHit)
+		{
+			ConnectNPCs(HitArray);
+		}
+
+		return bHit;
+	}
+
+	return false;
+}
+
+void ANPCAIController::ConnectNPCs(const TArray<FHitResult>& HitActorsArray)
+{
+	// Connect
+	for (const FHitResult& Hit : HitActorsArray)
+	{
+		AActor* HitActor = Hit.GetActor();
+		if (auto FoundActor = ConnectedActors.Find(HitActor))
+		{
+			if (GEngine)
+			{
+				 // GEngine->AddOnScreenDebugMessage(-1, 60.0f, FColor::Orange, FString::Printf(TEXT("Actor Already Added: %s"), *HitActor->GetName()));
+			}
+
+			continue;
+		}
+		else
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 60.0f, FColor::Orange, FString::Printf(TEXT("Added Hit Actor: %s"), *HitActor->GetName()));
+			}
+
+			ConnectedActors.Add(HitActor);
+		}
+	}
+
+	// Print
+	for (AActor* TheActor : ConnectedActors)
+	{
+		if (IsValid(TheActor))
+		{
+			if (GEngine)
+			{
+				// GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, FString::Printf(TEXT("Connected Actor: %s"), *TheActor->GetName()));
+			}
+		}
+	}
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, FString::Printf(TEXT("Total Connected Actors: %d"), ConnectedActors.Num()));
+	}
+}
+
+void ANPCAIController::CheckForNPCToDisconnect()
+{
+	// Disconnect
+	for (AActor* ConnectedNPC : ConnectedActors)
+	{
+		// Compare ConnectedActors with HitActorsArray:
+		FVector Start = ConnectedNPC->GetActorLocation();
+		FVector End = ConnectedNPC->GetActorLocation();
+
+		TArray<AActor*> ActorsToIgnore =
+		{
+			ConnectedNPC,
+			GetPlayerPawn()
+		};
+
+		float TraceRadius = 300.0f;
+
+		bool bTraceComplex = false;
+
+		TArray<FHitResult> HitArray = {};
+		TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes =
+		{
+			UEngineTypes::ConvertToObjectType(ECC_Pawn)
+		};
+
+		EDrawDebugTrace::Type DebugDraw = GSphereTracingDebugDraw ? EDrawDebugTrace::ForDuration : EDrawDebugTrace::None;
+		bool bHit = UKismetSystemLibrary::SphereTraceMultiForObjects(GetWorld(), Start, End, TraceRadius, ObjectTypes,
+			bTraceComplex, ActorsToIgnore, DebugDraw, HitArray, true, FLinearColor::Blue, FLinearColor::Gray, 60.0f);
+
+		for (const FHitResult& Hit : HitArray)
+		{
+			AActor* HitActor = Hit.GetActor();
+			if (auto FoundActor = ConnectedActors.Find(HitActor))
+			{
+				// keep
+				if (GEngine)
+				{
+					// GEngine->AddOnScreenDebugMessage(-1, 60.0f, FColor::Orange, FString::Printf(TEXT("Actor Already Added: %s"), *HitActor->GetName()));
+				}
+
+				continue;
+			}
+			else
+			{
+				// remove
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 60.0f, FColor::Orange, FString::Printf(TEXT("Removed Hit Actor: %s"), *HitActor->GetName()));
+				}
+
+				ConnectedActors.Remove(HitActor);
+			}
+		}
+	}
+
+	// Print
+	for (AActor* TheActor : ConnectedActors)
+	{
+		if (IsValid(TheActor))
+		{
+			if (GEngine)
+			{
+				// GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, FString::Printf(TEXT("Connected Actor: %s"), *TheActor->GetName()));
+			}
+		}
+	}
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, FString::Printf(TEXT("Total Connected Actors: %d"), ConnectedActors.Num()));
 	}
 }
