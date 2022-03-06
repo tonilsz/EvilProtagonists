@@ -27,15 +27,7 @@ void ANPCAIController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// ALL AIs
 	GetAllActorsOfType<ANPCAIController>(GetWorld(), AvailableAIActorsToConnect);
-	for (auto AIC : AvailableAIActorsToConnect)
-	{
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 60.0f, FColor::Orange, FString::Printf(TEXT("AI NPC: %s"), *AIC->GetName()));
-		}
-	}
 
 	if (this->AIBehavior != nullptr)
 	{
@@ -52,7 +44,6 @@ void ANPCAIController::Tick(float DeltaTime)
 
 APawn* ANPCAIController::GetPlayerPawn()
 {
-	// APawn* PlayerPawn = GetWorld()->GetFirstPlayerController()->GetPawn();
 	const int32 PlayerIndex = { 0 };
 	APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(GetWorld(), PlayerIndex);
 
@@ -135,8 +126,6 @@ bool ANPCAIController::CanPawnTakeDamage(APawn* ThePawn)
 			ThePawn,
 		};
 
-		float TraceRadius = 300.0f;
-
 		bool bTraceComplex = false;
 
 		TArray<FHitResult> HitArray = {};
@@ -173,8 +162,6 @@ bool ANPCAIController::CanPawnExplode(APawn* ThePawn)
 			ThePawn,
 			GetPlayerPawn()
 		};
-
-		float TraceRadius = 300.0f;
 
 		bool bTraceComplex = false;
 
@@ -218,7 +205,7 @@ void ANPCAIController::ConnectNPCs(const TArray<FHitResult>& HitActorsArray)
 		{
 			if (GEngine)
 			{
-				GEngine->AddOnScreenDebugMessage(-1, 60.0f, FColor::Orange, FString::Printf(TEXT("Added Hit Actor: %s"), *HitActor->GetName()));
+				// GEngine->AddOnScreenDebugMessage(-1, 60.0f, FColor::Orange, FString::Printf(TEXT("Added Hit Actor: %s"), *HitActor->GetName()));
 			}
 
 			ConnectedActors.Add(HitActor);
@@ -239,7 +226,7 @@ void ANPCAIController::ConnectNPCs(const TArray<FHitResult>& HitActorsArray)
 
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, FString::Printf(TEXT("Total Connected Actors: %d"), ConnectedActors.Num()));
+		// GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, FString::Printf(TEXT("Total Connected Actors: %d"), ConnectedActors.Num()));
 	}
 }
 
@@ -257,8 +244,6 @@ void ANPCAIController::CheckForNPCToDisconnect()
 			ConnectedNPC,
 			GetPlayerPawn()
 		};
-
-		float TraceRadius = 300.0f;
 
 		bool bTraceComplex = false;
 
@@ -290,7 +275,7 @@ void ANPCAIController::CheckForNPCToDisconnect()
 				// remove
 				if (GEngine)
 				{
-					GEngine->AddOnScreenDebugMessage(-1, 60.0f, FColor::Orange, FString::Printf(TEXT("Removed Hit Actor: %s"), *HitActor->GetName()));
+					// GEngine->AddOnScreenDebugMessage(-1, 60.0f, FColor::Orange, FString::Printf(TEXT("Removed Hit Actor: %s"), *HitActor->GetName()));
 				}
 
 				ConnectedActors.Remove(HitActor);
@@ -312,6 +297,6 @@ void ANPCAIController::CheckForNPCToDisconnect()
 
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, FString::Printf(TEXT("Total Connected Actors: %d"), ConnectedActors.Num()));
+		// GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, FString::Printf(TEXT("Total Connected Actors: %d"), ConnectedActors.Num()));
 	}
 }

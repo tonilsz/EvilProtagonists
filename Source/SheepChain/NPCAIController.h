@@ -100,6 +100,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float MaxDistanceToMove = 500.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float TraceRadius = 300.0f;
+
 private:
 	UPROPERTY(EditAnywhere)
 	class UBehaviorTree* AIBehavior = nullptr;
