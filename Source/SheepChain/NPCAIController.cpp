@@ -102,11 +102,6 @@ bool ANPCAIController::DamagePawn(APawn* ThePawn, float Damage)
 {
 	if (IsValid(ThePawn))
 	{
-		if (GEngine)
-		{
-			// GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Damage Pawn: %s"), *ThePawn->GetName()));
-		}
-
 		return true;
 	}
 
